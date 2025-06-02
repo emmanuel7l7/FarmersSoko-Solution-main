@@ -10,6 +10,7 @@ import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabase";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -24,15 +25,42 @@ const Login = () => {
     setLoading(true);
 
     try {
+      console.log('Attempting login with email:', email);
       await signIn(email, password);
+      console.log('Login successful, checking user role...');
       
-      // Check if the email is the admin email
-      if (email === import.meta.env.VITE_ADMIN_EMAIL) {
-        navigate("/admin");
-      } else {
-        navigate("/marketplace");
-      }
+      // Add a small delay to ensure the user state is updated
+      setTimeout(async () => {
+        if (email === import.meta.env.VITE_ADMIN_EMAIL) {
+          console.log('Redirecting to admin dashboard...');
+          navigate('/admin');
+        } else {
+          // Check if user is a farmer
+          console.log('Checking farmer status for email:', email);
+          const { data: farmerData, error: farmerError } = await supabase
+            .from('farmers')
+            .select('*')  // Select all columns for debugging
+            .eq('email', email)
+            .single();
+
+          console.log('Farmer data:', farmerData);
+          console.log('Farmer error:', farmerError);
+
+          if (farmerError) {
+            console.error('Error checking farmer status:', farmerError);
+          }
+
+          if (farmerData?.role === 'farmer') {
+            console.log('User is a farmer, redirecting to farmer dashboard...');
+            navigate('/farmer/dashboard');
+          } else {
+            console.log('User is a customer, redirecting to marketplace...');
+            navigate('/marketplace');
+          }
+        }
+      }, 100);
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Error",
         description: "Invalid email or password",

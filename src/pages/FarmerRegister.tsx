@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Leaf, ArrowLeft, Mail, User, Phone, MapPin, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
 const FarmerRegister = () => {
   const [formData, setFormData] = useState({
@@ -22,6 +23,9 @@ const FarmerRegister = () => {
     location: "",
     description: ""
   });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -30,10 +34,79 @@ const FarmerRegister = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement farmer registration logic
-    console.log("Farmer registration:", formData);
+    setLoading(true);
+
+    try {
+      // Validate passwords match
+      if (formData.password !== formData.confirmPassword) {
+        toast({
+          title: "Error",
+          description: "Passwords do not match",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            role: 'farmer',
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Create farmer profile
+        const { error: profileError } = await supabase
+          .from('farmers')
+          .insert([
+            {
+              id: authData.user.id,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              email: formData.email,
+              phone: formData.phone,
+              farm_name: formData.farmName,
+              location: formData.location,
+              description: formData.description,
+              role: 'farmer'
+            }
+          ])
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          throw profileError;
+        }
+
+        toast({
+          title: "Success",
+          description: "Your farmer account has been created successfully! Please check your email to verify your account.",
+        });
+
+        // Redirect to login page
+        navigate('/login');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -228,8 +301,12 @@ const FarmerRegister = () => {
                   </p>
                 </div>
 
-                <Button type="submit" className="w-full bg-green-600 hover:bg-green-700">
-                  Create Farmer Account
+                <Button 
+                  type="submit" 
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  disabled={loading}
+                >
+                  {loading ? "Creating Account..." : "Create Farmer Account"}
                 </Button>
               </form>
 

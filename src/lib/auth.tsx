@@ -21,18 +21,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        setUser(session.user as AuthUser);
+        // Check if user is a farmer
+        const { data: farmerData } = await supabase
+          .from('farmers')
+          .select('role')
+          .eq('email', session.user.email)
+          .single();
+
+        const userWithRole: AuthUser = {
+          ...session.user,
+          role: session.user.email === import.meta.env.VITE_ADMIN_EMAIL 
+            ? "admin" 
+            : farmerData?.role || "customer"
+        };
+        console.log('Initial session user:', userWithRole);
+        setUser(userWithRole);
       }
       setLoading(false);
     });
 
     // Listen for changes on auth state
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        setUser(session.user as AuthUser);
+        // Check if user is a farmer
+        const { data: farmerData } = await supabase
+          .from('farmers')
+          .select('role')
+          .eq('email', session.user.email)
+          .single();
+
+        const userWithRole: AuthUser = {
+          ...session.user,
+          role: session.user.email === import.meta.env.VITE_ADMIN_EMAIL 
+            ? "admin" 
+            : farmerData?.role || "customer"
+        };
+        console.log('Auth state changed - new user:', userWithRole);
+        setUser(userWithRole);
       } else {
+        console.log('Auth state changed - no user');
         setUser(null);
       }
       setLoading(false);
@@ -42,16 +71,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    console.log('Signing in with email:', email);
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
+
+    console.log('Sign in successful, user data:', data);
+    
+    // Check if user is a farmer
+    const { data: farmerData, error: farmerError } = await supabase
+      .from('farmers')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    console.log('Farmer data after sign in:', farmerData);
+    console.log('Farmer error after sign in:', farmerError);
+
+    if (data.user) {
+      const userWithRole: AuthUser = {
+        ...data.user,
+        role: email === import.meta.env.VITE_ADMIN_EMAIL 
+          ? "admin" 
+          : farmerData?.role || "customer"
+      };
+      console.log('Setting user with role:', userWithRole);
+      setUser(userWithRole);
+    }
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    setUser(null);
   };
 
   return (

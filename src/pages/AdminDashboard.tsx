@@ -11,13 +11,37 @@ import {
   Calendar,
   UserPlus,
   UserMinus,
-  AlertCircle
+  AlertCircle,
+  LogOut
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/lib/auth";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account",
+      });
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -34,6 +58,14 @@ const AdminDashboard = () => {
             <Button className="bg-green-600 hover:bg-green-700 flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Check Subscriptions
+            </Button>
+            <Button 
+              variant="destructive" 
+              className="flex items-center gap-2"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
             </Button>
           </div>
         </div>
