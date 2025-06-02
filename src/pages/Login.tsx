@@ -25,45 +25,68 @@ const Login = () => {
     setLoading(true);
 
     try {
-      console.log('Attempting login with email:', email);
+      console.log('Starting login process...');
       await signIn(email, password);
-      console.log('Login successful, checking user role...');
+      console.log('SignIn function completed, proceeding with role check...');
       
       // Add a small delay to ensure the user state is updated
       setTimeout(async () => {
-        if (email === import.meta.env.VITE_ADMIN_EMAIL) {
-          console.log('Redirecting to admin dashboard...');
-          navigate('/admin');
-        } else {
-          // Check if user is a farmer
-          console.log('Checking farmer status for email:', email);
-          const { data: farmerData, error: farmerError } = await supabase
-            .from('farmers')
-            .select('*')  // Select all columns for debugging
-            .eq('email', email)
-            .single();
-
-          console.log('Farmer data:', farmerData);
-          console.log('Farmer error:', farmerError);
-
-          if (farmerError) {
-            console.error('Error checking farmer status:', farmerError);
-          }
-
-          if (farmerData?.role === 'farmer') {
-            console.log('User is a farmer, redirecting to farmer dashboard...');
-            navigate('/farmer/dashboard');
+        try {
+          if (email === import.meta.env.VITE_ADMIN_EMAIL) {
+            console.log('Admin email detected, redirecting to admin dashboard...');
+            navigate('/admin');
           } else {
-            console.log('User is a customer, redirecting to marketplace...');
-            navigate('/marketplace');
+            // Check if user is a farmer
+            console.log('Checking farmer status for email:', email);
+            
+            // First, let's check if the farmers table exists and has data
+            const { data: allFarmers, error: tableError } = await supabase
+              .from('farmers')
+              .select('*')
+              .limit(5);
+            
+            console.log('Sample of farmers table data:', allFarmers);
+            console.log('Farmers table error:', tableError);
+
+            // Now check for specific farmer
+            const { data: farmerData, error: farmerError } = await supabase
+              .from('farmers')
+              .select('*')
+              .eq('email', email)
+              .maybeSingle();
+
+            console.log('Raw farmer data:', farmerData);
+            console.log('Farmer error:', farmerError);
+
+            if (farmerError) {
+              console.error('Error checking farmer status:', farmerError);
+              console.log('Redirecting to marketplace due to farmer check error');
+              navigate('/marketplace');
+              return;
+            }
+
+            // Check if farmerData exists and has a role
+            if (farmerData && farmerData.role === 'farmer') {
+              console.log('User is a farmer, farmer data:', farmerData);
+              console.log('Redirecting to farmer dashboard...');
+              navigate('/farmer/dashboard');
+            } else {
+              console.log('User is not a farmer or no farmer data found:', farmerData);
+              console.log('Redirecting to marketplace...');
+              navigate('/marketplace');
+            }
           }
+        } catch (error) {
+          console.error('Error in role check:', error);
+          // If there's an error in the role check, redirect to marketplace
+          navigate('/marketplace');
         }
       }, 100);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
       toast({
         title: "Error",
-        description: "Invalid email or password",
+        description: error.message || "Invalid email or password",
         variant: "destructive",
       });
     } finally {

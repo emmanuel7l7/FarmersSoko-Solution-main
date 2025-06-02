@@ -49,7 +49,65 @@ const FarmerRegister = () => {
         return;
       }
 
-      // Create auth user
+      // First, check if the user already exists
+      const { data: existingUser } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (existingUser?.user) {
+        // User exists, check if they have a farmer profile
+        const { data: existingFarmer } = await supabase
+          .from('farmers')
+          .select('*')
+          .eq('email', formData.email)
+          .single();
+
+        if (existingFarmer) {
+          toast({
+            title: "Account Exists",
+            description: "You already have a farmer account. Please login instead.",
+            variant: "destructive",
+          });
+          navigate('/login');
+          return;
+        }
+
+        // User exists but no farmer profile, create one
+        console.log('Creating farmer profile for existing user:', existingUser.user.id);
+        const { data: profileData, error: profileError } = await supabase
+          .from('farmers')
+          .insert([
+            {
+              id: existingUser.user.id,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              email: formData.email,
+              phone: formData.phone,
+              farm_name: formData.farmName,
+              location: formData.location,
+              description: formData.description,
+              role: 'farmer'
+            }
+          ])
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          throw profileError;
+        }
+
+        console.log('Farmer profile created successfully:', profileData);
+        toast({
+          title: "Success",
+          description: "Your farmer profile has been created successfully!",
+        });
+        navigate('/login');
+        return;
+      }
+
+      // Create new auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -66,7 +124,21 @@ const FarmerRegister = () => {
 
       if (authData.user) {
         // Create farmer profile
-        const { error: profileError } = await supabase
+        console.log('Creating farmer profile for new user:', authData.user.id);
+        
+        // First, sign in the user to get the session
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (signInError) {
+          console.error('Sign in error:', signInError);
+          throw signInError;
+        }
+
+        // Now create the farmer profile with the authenticated session
+        const { data: profileData, error: profileError } = await supabase
           .from('farmers')
           .insert([
             {
@@ -86,14 +158,21 @@ const FarmerRegister = () => {
 
         if (profileError) {
           console.error('Profile creation error:', profileError);
+          // If profile creation fails, delete the auth user
+          await supabase.auth.signOut();
           throw profileError;
         }
+
+        console.log('Farmer profile created successfully:', profileData);
 
         toast({
           title: "Success",
           description: "Your farmer account has been created successfully! Please check your email to verify your account.",
         });
 
+        // Sign out after successful registration
+        await supabase.auth.signOut();
+        
         // Redirect to login page
         navigate('/login');
       }

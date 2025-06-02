@@ -1,13 +1,14 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ShoppingCart, ArrowLeft, Mail, User, Phone, MapPin, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
 const CustomerRegister = () => {
   const [formData, setFormData] = useState({
@@ -19,6 +20,9 @@ const CustomerRegister = () => {
     confirmPassword: "",
     address: ""
   });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -27,10 +31,154 @@ const CustomerRegister = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement customer registration logic
-    console.log("Customer registration:", formData);
+    setLoading(true);
+
+    try {
+      // Validate passwords match
+      if (formData.password !== formData.confirmPassword) {
+        toast({
+          title: "Error",
+          description: "Passwords do not match",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // First, check if the user already exists
+      const { data: existingUser } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (existingUser?.user) {
+        // User exists, check if they have a customer profile
+        const { data: existingCustomer } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('email', formData.email)
+          .single();
+
+        if (existingCustomer) {
+          toast({
+            title: "Account Exists",
+            description: "You already have a customer account. Please login instead.",
+            variant: "destructive",
+          });
+          navigate('/login');
+          return;
+        }
+
+        // User exists but no customer profile, create one
+        console.log('Creating customer profile for existing user:', existingUser.user.id);
+        const { data: profileData, error: profileError } = await supabase
+          .from('customers')
+          .insert([
+            {
+              id: existingUser.user.id,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              email: formData.email,
+              phone: formData.phone,
+              address: formData.address,
+              role: 'customer'
+            }
+          ])
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          throw profileError;
+        }
+
+        console.log('Customer profile created successfully:', profileData);
+        toast({
+          title: "Success",
+          description: "Your customer profile has been created successfully!",
+        });
+        navigate('/login');
+        return;
+      }
+
+      // Create new auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            role: 'customer',
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Create customer profile
+        console.log('Creating customer profile for new user:', authData.user.id);
+        
+        // First, sign in the user to get the session
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (signInError) {
+          console.error('Sign in error:', signInError);
+          throw signInError;
+        }
+
+        // Now create the customer profile with the authenticated session
+        const { data: profileData, error: profileError } = await supabase
+          .from('customers')
+          .insert([
+            {
+              id: authData.user.id,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              email: formData.email,
+              phone: formData.phone,
+              address: formData.address,
+              role: 'customer'
+            }
+          ])
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          // If profile creation fails, delete the auth user
+          await supabase.auth.signOut();
+          throw profileError;
+        }
+
+        console.log('Customer profile created successfully:', profileData);
+
+        toast({
+          title: "Success",
+          description: "Your customer account has been created successfully! Please check your email to verify your account.",
+        });
+
+        // Sign out after successful registration
+        await supabase.auth.signOut();
+        
+        // Redirect to login page
+        navigate('/login');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -192,8 +340,12 @@ const CustomerRegister = () => {
                   </p>
                 </div>
 
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-                  Create Customer Account
+                <Button 
+                  type="submit" 
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  disabled={loading}
+                >
+                  {loading ? "Creating Account..." : "Create Customer Account"}
                 </Button>
               </form>
 
