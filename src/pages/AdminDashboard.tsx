@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,30 +16,64 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabase";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
-  const { signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userType, setUserType] = useState("unknown");
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setUserType(profile.role);
+        }
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
+    
+    setIsLoggingOut(true);
     try {
-      await signOut();
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your account",
-      });
-      navigate("/");
-    } catch (error) {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+
+      // Clear any local storage items if needed
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Force reload to clear all state
+      window.location.href = '/login';
+    } catch (error: any) {
+      console.error('Logout error:', error);
       toast({
         title: "Error",
         description: "Failed to log out. Please try again.",
         variant: "destructive",
       });
+      setIsLoggingOut(false);
     }
   };
 
@@ -63,9 +97,10 @@ const AdminDashboard = () => {
               variant="destructive" 
               className="flex items-center gap-2"
               onClick={handleLogout}
+              disabled={isLoggingOut}
             >
               <LogOut className="h-4 w-4" />
-              Logout
+              {isLoggingOut ? "Logging out..." : "Logout"}
             </Button>
           </div>
         </div>

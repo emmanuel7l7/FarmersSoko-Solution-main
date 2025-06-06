@@ -13,11 +13,13 @@ import Login from "./pages/Login";
 import FarmerDashboard from "./pages/FarmerDashboard";
 import FarmerProducts from "./pages/FarmerProducts";
 import AddProduct from "./pages/AddProduct";
+import EditProduct from "./pages/EditProduct";
 import Marketplace from "./pages/Marketplace";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/AdminDashboard";
+import CustomerProfile from "./pages/CustomerProfile";
 
 const queryClient = new QueryClient();
 
@@ -64,11 +66,13 @@ const App = () => {
               <Route path="/farmer/dashboard" element={<FarmerDashboard />} />
               <Route path="/farmer/products" element={<FarmerProducts />} />
               <Route path="/farmer/products/add" element={<AddProduct />} />
+              <Route path="/farmer/products/edit/:id" element={<EditProduct />} />
               
               {/* Customer Routes */}
               <Route path="/marketplace" element={<Marketplace />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/profile" element={<CustomerProfile />} />
               
               {/* Admin Routes */}
               <Route 

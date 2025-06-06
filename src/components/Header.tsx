@@ -1,15 +1,68 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Leaf, Menu, X, ShoppingCart, User, Package } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userType, setUserType] = useState("customer");
   
-  // TODO: Replace with actual authentication state
-  const isAuthenticated = false;
-  const userType = "customer"; // or "farmer"
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+      
+      if (user) {
+        console.log('Current user:', user);
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching profile:', error);
+        }
+        
+        if (profile) {
+          console.log('User role:', profile.role);
+          setUserType(profile.role);
+        }
+      }
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('Auth state changed:', _event, session?.user);
+      setIsAuthenticated(!!session?.user);
+      if (session?.user) {
+        supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data: profile, error }) => {
+            if (error) {
+              console.error('Error fetching profile on auth change:', error);
+            }
+            if (profile) {
+              console.log('User role on auth change:', profile.role);
+              setUserType(profile.role);
+            }
+          });
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Add debug logging for render
+  console.log('Current state:', { isAuthenticated, userType });
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -31,9 +84,14 @@ const Header = () => {
               Marketplace
             </Link>
             
-            {isAuthenticated ? (
+            {isAuthenticated && userType === "admin" ? (
+              <Link to="/admin/dashboard" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
+                <Package className="h-4 w-4 mr-1" />
+                Dashboard
+              </Link>
+            ) : isAuthenticated && (
               <>
-                {userType === "farmer" ? (
+                {userType === "farmer" && (
                   <>
                     <Link to="/farmer/dashboard" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
                       <Package className="h-4 w-4 mr-1" />
@@ -42,42 +100,37 @@ const Header = () => {
                     <Link to="/farmer/products" className="text-gray-600 hover:text-green-600 transition-colors">
                       My Products
                     </Link>
+                    <Link to="/profile" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
+                      <User className="h-4 w-4 mr-1" />
+                      Profile
+                    </Link>
                   </>
-                ) : (
+                )}
+                {userType === "customer" && (
                   <>
                     <Link to="/cart" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
                       <ShoppingCart className="h-4 w-4 mr-1" />
                       Cart
                     </Link>
+                    <Link to="/profile" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
+                      <User className="h-4 w-4 mr-1" />
+                      Profile
+                    </Link>
                   </>
                 )}
-                <Button variant="ghost" className="text-gray-600 hover:text-green-600">
-                  <User className="h-4 w-4 mr-1" />
-                  Profile
-                </Button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className="text-gray-600 hover:text-green-600 transition-colors">
-                  Login
-                </Link>
-                <Button asChild className="bg-green-600 hover:bg-green-700">
-                  <Link to="/register">Get Started</Link>
-                </Button>
               </>
             )}
           </nav>
 
-          {/* Mobile menu button */}
-          <button
-            onClick={toggleMenu}
-            className="md:hidden p-2 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100"
-          >
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {/* Mobile Navigation */}
+          <div className="md:hidden">
+            <Button variant="ghost" size="icon" onClick={toggleMenu}>
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </Button>
+          </div>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t">
             <nav className="flex flex-col space-y-3">
@@ -89,9 +142,18 @@ const Header = () => {
                 Marketplace
               </Link>
               
-              {isAuthenticated ? (
+              {isAuthenticated && userType === "admin" ? (
+                <Link 
+                  to="/admin/dashboard" 
+                  className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  Dashboard
+                </Link>
+              ) : isAuthenticated && (
                 <>
-                  {userType === "farmer" ? (
+                  {userType === "farmer" && (
                     <>
                       <Link 
                         to="/farmer/dashboard" 
@@ -108,8 +170,17 @@ const Header = () => {
                       >
                         My Products
                       </Link>
+                      <Link 
+                        to="/profile" 
+                        className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Profile
+                      </Link>
                     </>
-                  ) : (
+                  )}
+                  {userType === "customer" && (
                     <>
                       <Link 
                         to="/cart" 
@@ -119,29 +190,16 @@ const Header = () => {
                         <ShoppingCart className="h-4 w-4 mr-2" />
                         Cart
                       </Link>
+                      <Link 
+                        to="/profile" 
+                        className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Profile
+                      </Link>
                     </>
                   )}
-                  <button className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 text-left flex items-center">
-                    <User className="h-4 w-4 mr-2" />
-                    Profile
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link 
-                    to="/login" 
-                    className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Login
-                  </Link>
-                  <Link 
-                    to="/register" 
-                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-center"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Get Started
-                  </Link>
                 </>
               )}
             </nav>

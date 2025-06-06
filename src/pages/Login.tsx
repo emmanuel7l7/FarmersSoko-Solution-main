@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Leaf, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Leaf, Mail, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -25,63 +25,35 @@ const Login = () => {
     setLoading(true);
 
     try {
-      console.log('Starting login process...');
+      // First check if the user is a farmer
+      const { data: farmerData, error: farmerError } = await supabase
+        .from('farmers')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (farmerError && farmerError.code !== 'PGRST116') {
+        console.error('Error checking farmer status:', farmerError);
+        throw new Error('Error checking account status');
+      }
+
+      // If user is a farmer, proceed with login
+      if (farmerData) {
+        await signIn(email, password);
+        navigate('/farmer/dashboard');
+        return;
+      }
+
+      // If not a farmer, check if admin
+      if (email === import.meta.env.VITE_ADMIN_EMAIL) {
+        await signIn(email, password);
+        navigate('/admin');
+        return;
+      }
+
+      // If not a farmer or admin, proceed as customer
       await signIn(email, password);
-      console.log('SignIn function completed, proceeding with role check...');
-      
-      // Add a small delay to ensure the user state is updated
-      setTimeout(async () => {
-        try {
-          if (email === import.meta.env.VITE_ADMIN_EMAIL) {
-            console.log('Admin email detected, redirecting to admin dashboard...');
-            navigate('/admin');
-          } else {
-            // Check if user is a farmer
-            console.log('Checking farmer status for email:', email);
-            
-            // First, let's check if the farmers table exists and has data
-            const { data: allFarmers, error: tableError } = await supabase
-              .from('farmers')
-              .select('*')
-              .limit(5);
-            
-            console.log('Sample of farmers table data:', allFarmers);
-            console.log('Farmers table error:', tableError);
-
-            // Now check for specific farmer
-            const { data: farmerData, error: farmerError } = await supabase
-              .from('farmers')
-              .select('*')
-              .eq('email', email)
-              .maybeSingle();
-
-            console.log('Raw farmer data:', farmerData);
-            console.log('Farmer error:', farmerError);
-
-            if (farmerError) {
-              console.error('Error checking farmer status:', farmerError);
-              console.log('Redirecting to marketplace due to farmer check error');
-              navigate('/marketplace');
-              return;
-            }
-
-            // Check if farmerData exists and has a role
-            if (farmerData && farmerData.role === 'farmer') {
-              console.log('User is a farmer, farmer data:', farmerData);
-              console.log('Redirecting to farmer dashboard...');
-              navigate('/farmer/dashboard');
-            } else {
-              console.log('User is not a farmer or no farmer data found:', farmerData);
-              console.log('Redirecting to marketplace...');
-              navigate('/marketplace');
-            }
-          }
-        } catch (error) {
-          console.error('Error in role check:', error);
-          // If there's an error in the role check, redirect to marketplace
-          navigate('/marketplace');
-        }
-      }, 100);
+      navigate('/marketplace');
     } catch (error: any) {
       console.error('Login error:', error);
       toast({
@@ -110,13 +82,13 @@ const Login = () => {
               Welcome Back
             </h1>
             <p className="text-gray-600">
-              Sign in to your FarmersSoko account
+              Sign in to your account to continue
             </p>
           </div>
 
           <Card className="border-green-200">
             <CardHeader>
-              <CardTitle className="text-xl text-center">Login to Your Account</CardTitle>
+              <CardTitle className="text-xl text-center">Sign In</CardTitle>
               <CardDescription className="text-center">
                 Enter your credentials to access your account
               </CardDescription>
@@ -150,29 +122,17 @@ const Login = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="pl-10 pr-10"
+                      className="pl-10"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="remember"
-                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <Label htmlFor="remember" className="text-sm text-gray-600">
-                      Remember me
-                    </Label>
-                  </div>
-                  <Link to="/forgot-password" className="text-sm text-green-600 hover:text-green-700">
-                    Forgot password?
-                  </Link>
-                </div>
-
-                <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={loading}>
-                  {loading ? "Logging in..." : "Login"}
+                <Button 
+                  type="submit" 
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  disabled={loading}
+                >
+                  {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
 
@@ -195,3 +155,4 @@ const Login = () => {
 };
 
 export default Login;
+

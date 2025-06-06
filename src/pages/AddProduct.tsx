@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Upload, Package } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
 const AddProduct = () => {
   const [formData, setFormData] = useState({
@@ -21,6 +22,11 @@ const AddProduct = () => {
     harvestDate: "",
     expiryDate: ""
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const categories = [
     "Fruits",
@@ -38,10 +44,94 @@ const AddProduct = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+    }
+  };
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `product-images/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('products')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('products')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Product data:", formData);
-    // TODO: Implement product creation logic
+    if (!imageFile) {
+      toast({
+        title: "Error",
+        description: "Please select a product image",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // Upload image first
+      const imageUrl = await uploadImage(imageFile);
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Create product
+      const { data: product, error } = await supabase
+        .from('products')
+        .insert([
+          {
+            name: formData.name,
+            category: formData.category,
+            price: parseFloat(formData.price),
+            quantity_available: parseInt(formData.stock),
+            unit: formData.unit,
+            description: formData.description,
+            harvest_date: formData.harvestDate,
+            expiry_date: formData.expiryDate,
+            image_url: imageUrl,
+            farmer_id: user.id
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Product added successfully!",
+      });
+
+      navigate('/farmer/products');
+    } catch (error: any) {
+      console.error('Error adding product:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -75,10 +165,34 @@ const AddProduct = () => {
                 {/* Product Image */}
                 <div className="space-y-2">
                   <Label>Product Image</Label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-400 transition-colors cursor-pointer">
-                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600">Click to upload product image</p>
-                    <p className="text-xs text-gray-500">PNG, JPG up to 5MB</p>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-400 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                      id="product-image"
+                    />
+                    <label htmlFor="product-image" className="cursor-pointer">
+                      {imagePreview ? (
+                        <div className="relative aspect-square max-w-xs mx-auto">
+                          <img
+                            src={imagePreview}
+                            alt="Product preview"
+                            className="rounded-lg object-cover w-full h-full"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-40 rounded-lg flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                            <p className="text-white text-sm">Click to change image</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-600">Click to upload product image</p>
+                          <p className="text-xs text-gray-500">PNG, JPG up to 5MB</p>
+                        </>
+                      )}
+                    </label>
                   </div>
                 </div>
 
@@ -194,8 +308,12 @@ const AddProduct = () => {
                 </div>
 
                 <div className="flex gap-4 pt-4">
-                  <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
-                    List Product
+                  <Button 
+                    type="submit" 
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    disabled={isUploading}
+                  >
+                    {isUploading ? "Adding Product..." : "List Product"}
                   </Button>
                   <Button type="button" variant="outline" asChild>
                     <Link to="/farmer/products">Cancel</Link>
