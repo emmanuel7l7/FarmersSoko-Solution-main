@@ -225,7 +225,6 @@ const AdminDashboard = () => {
                     <Input
                       placeholder="Search users..."
                       className="w-64"
-                      icon={<Search className="h-4 w-4" />}
                     />
                     <Button variant="outline">
                       <Filter className="h-4 w-4 mr-2" />
@@ -255,7 +254,7 @@ const AdminDashboard = () => {
                       <TableCell>john@example.com</TableCell>
                       <TableCell>Farmer</TableCell>
                       <TableCell>
-                        <Badge variant="success">Active</Badge>
+                        <Badge variant="default">Active</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -287,7 +286,6 @@ const AdminDashboard = () => {
                     <Input
                       placeholder="Search orders..."
                       className="w-64"
-                      icon={<Search className="h-4 w-4" />}
                     />
                     <Button variant="outline">
                       <Filter className="h-4 w-4 mr-2" />
@@ -315,7 +313,7 @@ const AdminDashboard = () => {
                       <TableCell>2024-02-20</TableCell>
                       <TableCell>TSh 45,000</TableCell>
                       <TableCell>
-                        <Badge variant="warning">Processing</Badge>
+                        <Badge variant="secondary">Processing</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -344,7 +342,6 @@ const AdminDashboard = () => {
                     <Input
                       placeholder="Search deliveries..."
                       className="w-64"
-                      icon={<Search className="h-4 w-4" />}
                     />
                     <Button variant="outline">
                       <Filter className="h-4 w-4 mr-2" />
@@ -372,7 +369,7 @@ const AdminDashboard = () => {
                       <TableCell>Jane Smith</TableCell>
                       <TableCell>123 Main St, Dar es Salaam</TableCell>
                       <TableCell>
-                        <Badge variant="info">In Transit</Badge>
+                        <Badge variant="default">In Transit</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -401,7 +398,6 @@ const AdminDashboard = () => {
                     <Input
                       placeholder="Search subscriptions..."
                       className="w-64"
-                      icon={<Search className="h-4 w-4" />}
                     />
                     <Button variant="outline">
                       <Filter className="h-4 w-4 mr-2" />
@@ -431,7 +427,7 @@ const AdminDashboard = () => {
                       <TableCell>2024-01-01</TableCell>
                       <TableCell>2024-12-31</TableCell>
                       <TableCell>
-                        <Badge variant="success">Active</Badge>
+                        <Badge variant="default">Active</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
