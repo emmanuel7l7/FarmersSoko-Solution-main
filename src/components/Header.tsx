@@ -80,44 +80,48 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
-            <Link to="/marketplace" className="text-gray-600 hover:text-green-600 transition-colors">
-              Marketplace
-            </Link>
+            {!isAuthenticated && (
+              <Link to="/marketplace" className="text-gray-600 hover:text-green-600 transition-colors">
+                Marketplace
+              </Link>
+            )}
             
-            {isAuthenticated && userType === "admin" ? (
+            {isAuthenticated && userType === "admin" && (
               <Link to="/admin/dashboard" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
                 <Package className="h-4 w-4 mr-1" />
                 Dashboard
               </Link>
-            ) : isAuthenticated && (
+            )}
+            
+            {isAuthenticated && userType === "farmer" && (
               <>
-                {userType === "farmer" && (
-                  <>
-                    <Link to="/farmer/dashboard" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
-                      <Package className="h-4 w-4 mr-1" />
-                      Dashboard
-                    </Link>
-                    <Link to="/farmer/products" className="text-gray-600 hover:text-green-600 transition-colors">
-                      My Products
-                    </Link>
-                    <Link to="/profile" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
-                      <User className="h-4 w-4 mr-1" />
-                      Profile
-                    </Link>
-                  </>
-                )}
-                {userType === "customer" && (
-                  <>
-                    <Link to="/cart" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
-                      <ShoppingCart className="h-4 w-4 mr-1" />
-                      Cart
-                    </Link>
-                    <Link to="/profile" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
-                      <User className="h-4 w-4 mr-1" />
-                      Profile
-                    </Link>
-                  </>
-                )}
+                <Link to="/farmer/dashboard" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
+                  <Package className="h-4 w-4 mr-1" />
+                  Dashboard
+                </Link>
+                <Link to="/farmer/products" className="text-gray-600 hover:text-green-600 transition-colors">
+                  My Products
+                </Link>
+                <Link to="/profile" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
+                  <User className="h-4 w-4 mr-1" />
+                  Profile
+                </Link>
+              </>
+            )}
+            
+            {isAuthenticated && userType === "customer" && (
+              <>
+                <Link to="/marketplace" className="text-gray-600 hover:text-green-600 transition-colors">
+                  Marketplace
+                </Link>
+                <Link to="/cart" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
+                  <ShoppingCart className="h-4 w-4 mr-1" />
+                  Cart
+                </Link>
+                <Link to="/profile" className="text-gray-600 hover:text-green-600 transition-colors flex items-center">
+                  <User className="h-4 w-4 mr-1" />
+                  Profile
+                </Link>
               </>
             )}
           </nav>
@@ -134,15 +138,17 @@ const Header = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t">
             <nav className="flex flex-col space-y-3">
-              <Link 
-                to="/marketplace" 
-                className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Marketplace
-              </Link>
+              {!isAuthenticated && (
+                <Link 
+                  to="/marketplace" 
+                  className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Marketplace
+                </Link>
+              )}
               
-              {isAuthenticated && userType === "admin" ? (
+              {isAuthenticated && userType === "admin" && (
                 <Link 
                   to="/admin/dashboard" 
                   className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
@@ -151,55 +157,61 @@ const Header = () => {
                   <Package className="h-4 w-4 mr-2" />
                   Dashboard
                 </Link>
-              ) : isAuthenticated && (
+              )}
+              
+              {isAuthenticated && userType === "farmer" && (
                 <>
-                  {userType === "farmer" && (
-                    <>
-                      <Link 
-                        to="/farmer/dashboard" 
-                        className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        <Package className="h-4 w-4 mr-2" />
-                        Dashboard
-                      </Link>
-                      <Link 
-                        to="/farmer/products" 
-                        className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        My Products
-                      </Link>
-                      <Link 
-                        to="/profile" 
-                        className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        Profile
-                      </Link>
-                    </>
-                  )}
-                  {userType === "customer" && (
-                    <>
-                      <Link 
-                        to="/cart" 
-                        className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        Cart
-                      </Link>
-                      <Link 
-                        to="/profile" 
-                        className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        Profile
-                      </Link>
-                    </>
-                  )}
+                  <Link 
+                    to="/farmer/dashboard" 
+                    className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Link>
+                  <Link 
+                    to="/farmer/products" 
+                    className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    My Products
+                  </Link>
+                  <Link 
+                    to="/profile" 
+                    className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </Link>
+                </>
+              )}
+              
+              {isAuthenticated && userType === "customer" && (
+                <>
+                  <Link 
+                    to="/marketplace" 
+                    className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Marketplace
+                  </Link>
+                  <Link 
+                    to="/cart" 
+                    className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Cart
+                  </Link>
+                  <Link 
+                    to="/profile" 
+                    className="text-gray-600 hover:text-green-600 transition-colors px-2 py-1 flex items-center"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </Link>
                 </>
               )}
             </nav>

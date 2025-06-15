@@ -25,35 +25,10 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // First check if the user is a farmer
-      const { data: farmerData, error: farmerError } = await supabase
-        .from('farmers')
-        .select('*')
-        .eq('email', email)
-        .single();
-
-      if (farmerError && farmerError.code !== 'PGRST116') {
-        console.error('Error checking farmer status:', farmerError);
-        throw new Error('Error checking account status');
-      }
-
-      // If user is a farmer, proceed with login
-      if (farmerData) {
-        await signIn(email, password);
-        navigate('/farmer/dashboard');
-        return;
-      }
-
-      // If not a farmer, check if admin
-      if (email === import.meta.env.VITE_ADMIN_EMAIL) {
-        await signIn(email, password);
-        navigate('/admin');
-        return;
-      }
-
-      // If not a farmer or admin, proceed as customer
       await signIn(email, password);
-      navigate('/marketplace');
+      
+      // The navigation will be handled by the auth state change listener
+      // No need to manually navigate here
     } catch (error: any) {
       console.error('Login error:', error);
       toast({
