@@ -3,16 +3,16 @@ DROP TABLE IF EXISTS cart_items CASCADE;
 DROP TABLE IF EXISTS order_items CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
 DROP TABLE IF EXISTS products CASCADE;
-DROP TABLE IF EXISTS profiles CASCADE;
 DROP TABLE IF EXISTS farmers CASCADE;
 DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
 DROP TABLE IF EXISTS subscriptions CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS deliveries CASCADE;
 
--- Create profiles table
+-- Create profiles table first
 CREATE TABLE profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID REFERENCES auth.users(id) PRIMARY KEY,
     role TEXT NOT NULL CHECK (role IN ('admin', 'farmer', 'customer')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
@@ -20,18 +20,22 @@ CREATE TABLE profiles (
 
 -- Create farmers table
 CREATE TABLE farmers (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID REFERENCES profiles(id) PRIMARY KEY,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
+    email TEXT NOT NULL,
     phone TEXT,
+    farm_name TEXT,
     location TEXT,
+    description TEXT,
+    role TEXT DEFAULT 'farmer',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- Create customers table
 CREATE TABLE customers (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID REFERENCES profiles(id) PRIMARY KEY,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     phone TEXT,
@@ -42,26 +46,24 @@ CREATE TABLE customers (
 
 -- Create products table
 CREATE TABLE products (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    farmer_id UUID REFERENCES farmers(id) NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
     price DECIMAL(10,2) NOT NULL,
-    category TEXT NOT NULL,
-    quantity_available INTEGER NOT NULL DEFAULT 0,
-    unit TEXT NOT NULL DEFAULT 'kg',
+    stock_quantity INTEGER NOT NULL DEFAULT 0,
     image_url TEXT,
-    expiry_date DATE,
+    category TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- Create orders table
 CREATE TABLE orders (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    customer_id UUID REFERENCES customers(id) NOT NULL,
     total_amount DECIMAL(10,2) NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'processing', 'delivered', 'cancelled')),
+    status TEXT NOT NULL DEFAULT 'pending',
     delivery_address TEXT NOT NULL,
     delivery_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
@@ -70,77 +72,115 @@ CREATE TABLE orders (
 
 -- Create order_items table
 CREATE TABLE order_items (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    order_id UUID REFERENCES orders(id) NOT NULL,
+    product_id UUID REFERENCES products(id) NOT NULL,
     quantity INTEGER NOT NULL,
-    price DECIMAL(10,2) NOT NULL,
+    price_at_time DECIMAL(10,2) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- Create cart_items table
 CREATE TABLE cart_items (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
-    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
-    price DECIMAL(10,2) NOT NULL,
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    customer_id UUID REFERENCES customers(id) NOT NULL,
+    product_id UUID REFERENCES products(id) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    UNIQUE(customer_id, product_id)
 );
 
 -- Create subscriptions table
 CREATE TABLE subscriptions (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    plan_type TEXT NOT NULL CHECK (plan_type IN ('basic', 'premium', 'enterprise')),
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'expired')),
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    price DECIMAL(10,2) NOT NULL,
-    payment_status TEXT NOT NULL DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'failed')),
-    last_payment_date TIMESTAMP WITH TIME ZONE,
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    customer_id UUID REFERENCES customers(id) NOT NULL,
+    plan_type TEXT NOT NULL,
+    start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- Create notifications table
 CREATE TABLE notifications (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES profiles(id) NOT NULL,
     title TEXT NOT NULL,
     message TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('system', 'order', 'delivery', 'subscription')),
-    status TEXT NOT NULL DEFAULT 'unread' CHECK (status IN ('unread', 'read', 'archived')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+    type TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- Create deliveries table
 CREATE TABLE deliveries (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'assigned', 'in_transit', 'delivered', 'failed')),
-    delivery_person_id UUID REFERENCES auth.users(id),
-    tracking_number TEXT,
-    estimated_delivery_date TIMESTAMP WITH TIME ZONE,
-    actual_delivery_date TIMESTAMP WITH TIME ZONE,
-    delivery_notes TEXT,
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    order_id UUID REFERENCES orders(id) NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    delivery_person_id UUID REFERENCES profiles(id),
+    estimated_delivery_time TIMESTAMP WITH TIME ZONE,
+    actual_delivery_time TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Create indexes
-CREATE INDEX products_farmer_id_idx ON products(farmer_id);
-CREATE INDEX orders_customer_id_idx ON orders(customer_id);
-CREATE INDEX order_items_order_id_idx ON order_items(order_id);
-CREATE INDEX order_items_product_id_idx ON order_items(product_id);
-CREATE INDEX cart_items_customer_id_idx ON cart_items(customer_id);
-CREATE INDEX cart_items_product_id_idx ON cart_items(product_id);
-CREATE INDEX subscriptions_user_id_idx ON subscriptions(user_id);
-CREATE INDEX notifications_user_id_idx ON notifications(user_id);
-CREATE INDEX deliveries_order_id_idx ON deliveries(order_id);
-CREATE INDEX deliveries_delivery_person_id_idx ON deliveries(delivery_person_id);
+-- Create function to handle user profile creation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+    user_role TEXT;
+BEGIN
+    -- Get role from metadata or default to 'customer'
+    user_role := COALESCE(NEW.raw_user_meta_data->>'role', 'customer');
+    
+    -- Insert into profiles
+    INSERT INTO public.profiles (id, role)
+    VALUES (NEW.id, user_role);
+    
+    -- Insert into role-specific table
+    IF user_role = 'farmer' THEN
+        INSERT INTO public.farmers (
+            id, 
+            first_name, 
+            last_name,
+            email,
+            phone,
+            farm_name,
+            location,
+            description,
+            role
+        )
+        VALUES (
+            NEW.id,
+            COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
+            COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
+            NEW.email,
+            COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+            COALESCE(NEW.raw_user_meta_data->>'farm_name', ''),
+            COALESCE(NEW.raw_user_meta_data->>'location', ''),
+            COALESCE(NEW.raw_user_meta_data->>'description', ''),
+            'farmer'
+        );
+    ELSIF user_role = 'customer' THEN
+        INSERT INTO public.customers (id, first_name, last_name)
+        VALUES (
+            NEW.id,
+            COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
+            COALESCE(NEW.raw_user_meta_data->>'last_name', '')
+        );
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger for new user creation
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -154,208 +194,83 @@ ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE deliveries ENABLE ROW LEVEL SECURITY;
 
--- Create RLS Policies
-
--- Profiles policies
+-- Create RLS policies
 CREATE POLICY "Users can view their own profile"
     ON profiles FOR SELECT
-    USING ((SELECT auth.uid()) = id);
+    USING (auth.uid() = id);
 
 CREATE POLICY "Users can update their own profile"
     ON profiles FOR UPDATE
-    USING ((SELECT auth.uid()) = id);
+    USING (auth.uid() = id);
 
-CREATE POLICY "Users can insert their own profile"
-    ON profiles FOR INSERT
-    WITH CHECK ((SELECT auth.uid()) = id);
-
--- Farmers policies
-CREATE POLICY "Farmers can view their own profile"
+CREATE POLICY "Farmers can view their own data"
     ON farmers FOR SELECT
-    USING ((SELECT auth.uid()) = id);
+    USING (auth.uid() = id);
 
-CREATE POLICY "Farmers can update their own profile"
+CREATE POLICY "Farmers can update their own data"
     ON farmers FOR UPDATE
-    USING ((SELECT auth.uid()) = id);
+    USING (auth.uid() = id);
 
-CREATE POLICY "Farmers can insert their own profile"
-    ON farmers FOR INSERT
-    WITH CHECK ((SELECT auth.uid()) = id);
-
--- Customers policies
-CREATE POLICY "Customers can view their own profile"
+CREATE POLICY "Customers can view their own data"
     ON customers FOR SELECT
-    USING ((SELECT auth.uid()) = id);
+    USING (auth.uid() = id);
 
-CREATE POLICY "Customers can update their own profile"
+CREATE POLICY "Customers can update their own data"
     ON customers FOR UPDATE
-    USING ((SELECT auth.uid()) = id);
+    USING (auth.uid() = id);
 
-CREATE POLICY "Customers can insert their own profile"
-    ON customers FOR INSERT
-    WITH CHECK ((SELECT auth.uid()) = id);
-
--- Products policies
-CREATE POLICY "Products are viewable by everyone"
+CREATE POLICY "Anyone can view products"
     ON products FOR SELECT
     USING (true);
 
 CREATE POLICY "Farmers can manage their own products"
     ON products FOR ALL
-    USING (
-        EXISTS (
-            SELECT 1 FROM profiles
-            WHERE id = (SELECT auth.uid())
-            AND role = 'farmer'
-            AND id = farmer_id
-        )
-    )
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM profiles
-            WHERE id = (SELECT auth.uid())
-            AND role = 'farmer'
-            AND id = farmer_id
-        )
-    );
+    USING (auth.uid() = farmer_id);
 
--- Orders policies
-CREATE POLICY "Users can view their own orders"
+CREATE POLICY "Customers can view their own orders"
     ON orders FOR SELECT
-    USING ((SELECT auth.uid()) = customer_id);
+    USING (auth.uid() = customer_id);
 
-CREATE POLICY "Users can create their own orders"
+CREATE POLICY "Customers can create their own orders"
     ON orders FOR INSERT
-    WITH CHECK ((SELECT auth.uid()) = customer_id);
+    WITH CHECK (auth.uid() = customer_id);
 
-CREATE POLICY "Users can update their own orders"
-    ON orders FOR UPDATE
-    USING ((SELECT auth.uid()) = customer_id);
-
--- Order items policies
-CREATE POLICY "Users can view their own order items"
+CREATE POLICY "Customers can view their own order items"
     ON order_items FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM orders
-            WHERE orders.id = order_items.order_id
-            AND orders.customer_id = (SELECT auth.uid())
-        )
-    );
+    USING (EXISTS (
+        SELECT 1 FROM orders
+        WHERE orders.id = order_items.order_id
+        AND orders.customer_id = auth.uid()
+    ));
 
-CREATE POLICY "Users can create their own order items"
-    ON order_items FOR INSERT
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM orders
-            WHERE orders.id = order_items.order_id
-            AND orders.customer_id = (SELECT auth.uid())
-        )
-    );
+CREATE POLICY "Customers can manage their own cart"
+    ON cart_items FOR ALL
+    USING (auth.uid() = customer_id);
 
--- Cart items policies
-CREATE POLICY "Users can view their own cart items"
-    ON cart_items FOR SELECT
-    USING ((SELECT auth.uid()) = customer_id);
-
-CREATE POLICY "Users can insert their own cart items"
-    ON cart_items FOR INSERT
-    WITH CHECK ((SELECT auth.uid()) = customer_id);
-
-CREATE POLICY "Users can update their own cart items"
-    ON cart_items FOR UPDATE
-    USING ((SELECT auth.uid()) = customer_id);
-
-CREATE POLICY "Users can delete their own cart items"
-    ON cart_items FOR DELETE
-    USING ((SELECT auth.uid()) = customer_id);
-
--- Subscriptions policies
 CREATE POLICY "Users can view their own subscriptions"
     ON subscriptions FOR SELECT
-    USING ((SELECT auth.uid()) = user_id);
+    USING (auth.uid() = customer_id);
 
-CREATE POLICY "Users can update their own subscriptions"
-    ON subscriptions FOR UPDATE
-    USING ((SELECT auth.uid()) = user_id);
-
-CREATE POLICY "Users can insert their own subscriptions"
-    ON subscriptions FOR INSERT
-    WITH CHECK ((SELECT auth.uid()) = user_id);
-
--- Notifications policies
 CREATE POLICY "Users can view their own notifications"
     ON notifications FOR SELECT
-    USING ((SELECT auth.uid()) = user_id);
+    USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own notifications"
-    ON notifications FOR UPDATE
-    USING ((SELECT auth.uid()) = user_id);
-
-CREATE POLICY "Users can delete their own notifications"
-    ON notifications FOR DELETE
-    USING ((SELECT auth.uid()) = user_id);
-
--- Deliveries policies
 CREATE POLICY "Users can view their own deliveries"
     ON deliveries FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM orders
-            WHERE orders.id = deliveries.order_id
-            AND orders.customer_id = (SELECT auth.uid())
-        )
-    );
-
-CREATE POLICY "Delivery personnel can update assigned deliveries"
-    ON deliveries FOR UPDATE
-    USING ((SELECT auth.uid()) = delivery_person_id);
-
--- Create function to ensure user profile exists
-CREATE OR REPLACE FUNCTION ensure_user_profile()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM profiles WHERE id = NEW.id
-    ) THEN
-        -- Create profile with default role
-        INSERT INTO profiles (id, role, created_at, updated_at)
-        VALUES (
-            NEW.id,
-            'customer',
-            CURRENT_TIMESTAMP,
-            CURRENT_TIMESTAMP
-        );
-
-        -- Create customer profile
-        INSERT INTO customers (id, first_name, last_name, created_at, updated_at)
-        VALUES (
-            NEW.id,
-            'New',
-            'Customer',
-            CURRENT_TIMESTAMP,
-            CURRENT_TIMESTAMP
-        );
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Create trigger to automatically create profile when user is created
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW
-    EXECUTE FUNCTION ensure_user_profile();
+    USING (EXISTS (
+        SELECT 1 FROM orders
+        WHERE orders.id = deliveries.order_id
+        AND orders.customer_id = auth.uid()
+    ));
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_at = TIMEZONE('utc'::text, NOW());
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ language 'plpgsql';
 
 -- Create triggers for updated_at
 CREATE TRIGGER update_profiles_updated_at
@@ -390,11 +305,6 @@ CREATE TRIGGER update_cart_items_updated_at
 
 CREATE TRIGGER update_subscriptions_updated_at
     BEFORE UPDATE ON subscriptions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_notifications_updated_at
-    BEFORE UPDATE ON notifications
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
